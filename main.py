@@ -1,3 +1,4 @@
+# %%writefile Instrucciones.py *Para correrlo en colab*
 from instrucciones import Instrucciones
 
 WORD_SIZE = 64  # bits
