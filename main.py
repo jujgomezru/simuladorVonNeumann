@@ -1,102 +1,73 @@
-class Instrucciones:
-    def __init__(self, cpu):
-        self.cpu = cpu
+from instrucciones import Instrucciones
 
-    def ejecutar(self, instruccion):
-        opcode = instruccion & 0xFF
-        modo = (instruccion >> 8) & 0xF
-        r1 = (instruccion >> 12) & 0xF
-        r2 = (instruccion >> 16) & 0xF
-        constante = (instruccion >> 32) & 0xFFFFFFFF
+WORD_SIZE = 64  # bits
+MEMORY_SIZE = 2 ** 16  # palabras de 64 bits
 
-        match opcode:
-            case 0x00: self.nop()
-            case 0x81: self.add(r1, r2, constante, modo)
-            case 0x82: self.sub(r1, r2, constante, modo)
-            case 0x83: self.mul(r1, r2, constante, modo)
-            case 0x84: self.div(r1, r2, constante, modo)
-            case 0x8A: self.comp(r1, r2, constante, modo)
-            case 0xC2: self.load(r1, r2, constante, modo)
-            case 0xC3: self.store(r1, r2, constante, modo)
-            case 0xE0: self.jmp(constante)
-            case 0xE1: self.jz(constante)
-            case 0xE2: self.jn(constante)
-            case 0xED: self.jnn(constante)
-            case 0xEE: self.jnz(constante)
-            case 0xFF: self.halt()
-            case _: print(f"Instrucción no implementada: {hex(opcode)}"); self.cpu.running = False
+class Memoria:
+    def __init__(self):
+        self.mem = [0] * MEMORY_SIZE
 
-    def nop(self):
-        pass
+    def leer(self, direccion):
+        assert 0 <= direccion < MEMORY_SIZE, f"Dirección fuera de rango: {direccion}"
+        return self.mem[direccion]
 
-    def halt(self):
-        self.cpu.running = False
+    def escribir(self, direccion, valor):
+        assert 0 <= direccion < MEMORY_SIZE, f"Dirección fuera de rango: {direccion}"
+        self.mem[direccion] = valor & 0xFFFFFFFFFFFFFFFF
 
-    def add(self, r1, r2, k, modo):
-        val = k if modo == 0 else self.cpu.reg[r2]
-        res = (self.cpu.reg[r1] + val) & 0xFFFFFFFFFFFFFFFF
-        self.cpu.reg[r1] = res
-        self.set_flags(res)
+class CPU:
+    def __init__(self, memoria):
+        self.mem = memoria
+        self.reg = [0] * 16
+        self.PC = 0
+        self.IR = 0
+        self.MAR = 0
+        self.MDR = 0
+        self.FLAGS = {'Z': 0, 'N': 0, 'C': 0, 'V': 0}
+        self.running = True
+        self.instrucciones = Instrucciones(self)
 
-    def sub(self, r1, r2, k, modo):
-        val = k if modo == 0 else self.cpu.reg[r2]
-        res = (self.cpu.reg[r1] - val) & 0xFFFFFFFFFFFFFFFF
-        self.cpu.reg[r1] = res
-        self.set_flags(res)
+    def fetch(self):
+        self.MAR = self.PC
+        self.IR = self.mem.leer(self.MAR)
+        self.PC += 1
 
-    def mul(self, r1, r2, k, modo):
-        val = k if modo == 0 else self.cpu.reg[r2]
-        res = (self.cpu.reg[r1] * val) & 0xFFFFFFFFFFFFFFFF
-        self.cpu.reg[r1] = res
-        self.set_flags(res)
+    def decode_execute(self):
+        self.instrucciones.ejecutar(self.IR)
 
-    def div(self, r1, r2, k, modo):
-        val = k if modo == 0 else self.cpu.reg[r2]
-        if val == 0:
-            print("Error: División por cero")
-            self.cpu.running = False
-            return
-        res = (self.cpu.reg[r1] // val) & 0xFFFFFFFFFFFFFFFF
-        self.cpu.reg[r1] = res
-        self.set_flags(res)
+    def ejecutar(self):
+        while self.running:
+            self.fetch()
+            self.decode_execute()
 
-    def comp(self, r1, r2, k, modo):
-        val = k if modo == 0 else self.cpu.reg[r2]
-        res = (self.cpu.reg[r1] - val) & 0xFFFFFFFFFFFFFFFF
-        self.set_flags(res)
+class Cargador:
+    @staticmethod
+    def cargar(memoria, instrucciones, base_addr):
+        for i, palabra in enumerate(instrucciones):
+            memoria.escribir(base_addr + i, palabra)
 
-    def load(self, r1, r2, k, modo):
-        match modo:
-            case 0: self.cpu.reg[r1] = k
-            case 1: self.cpu.reg[r1] = self.cpu.reg[r2]
-            case 2: self.cpu.reg[r1] = self.cpu.mem.leer(k)
-            case 3: self.cpu.reg[r1] = self.cpu.mem.leer(k + self.cpu.reg[r2])
+# Ejemplo de uso
+if __name__ == '__main__':
+    mem = Memoria()
+    cpu = CPU(mem)
 
-    def store(self, r1, r2, k, modo):
-        match modo:
-            case 2: self.cpu.mem.escribir(k, self.cpu.reg[r1])
-            case 3: self.cpu.mem.escribir(k + self.cpu.reg[r2], self.cpu.reg[r1])
+    # Programa de prueba: Euclides MCD de 36 y 24 en R1 y R2
+    instrucciones = [
+        0x8A11000000000000,
+        0xE1300000000000D2,
+        0xE2300000000000CD,
+        0x8211200000000000,
+        0xE0300000000000C8,
+        0x8221400000000000,
+        0xE0300000000000C8,
+        0x0000000000000000,
+        0xFF00000000000000
+    ]
 
-    def jmp(self, dest):
-        self.cpu.PC = dest
+    Cargador.cargar(mem, instrucciones, 0xC8)
+    cpu.PC = 0xC8
+    cpu.reg[1] = 36
+    cpu.reg[2] = 24
+    cpu.ejecutar()
 
-    def jz(self, dest):
-        if self.cpu.FLAGS['Z'] == 1:
-            self.cpu.PC = dest
-
-    def jnz(self, dest):
-        if self.cpu.FLAGS['Z'] == 0:
-            self.cpu.PC = dest
-
-    def jn(self, dest):
-        if self.cpu.FLAGS['N'] == 1:
-            self.cpu.PC = dest
-
-    def jnn(self, dest):
-        if self.cpu.FLAGS['N'] == 0:
-            self.cpu.PC = dest
-
-    def set_flags(self, result):
-        self.cpu.FLAGS['Z'] = 1 if result == 0 else 0
-        self.cpu.FLAGS['N'] = 1 if (result >> 63) & 1 else 0
-        # Simples, se puede extender para C y V según se necesite
+    print(f"Resultado en R1: {cpu.reg[1]}")
