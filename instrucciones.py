@@ -180,3 +180,25 @@ class Instrucciones:
         self.cpu.FLAGS['Z'] = 1 if result == 0 else 0
         self.cpu.FLAGS['N'] = 1 if (result >> 63) & 1 else 0
         # Simples, se puede extender para C y V según se necesite
+    
+    def inc(self, r1):
+        self.cpu.reg[r1] += 1
+    
+    def dec(self, r1):
+        self.cpu.reg[r1] -= 1
+    
+    def load_sp(self, r1):
+        self.cpu.reg[r1] = self.cpu.reg[15]
+    
+    def store_sp(self, r1, constante):
+        self.cpu.mem.escribir(constante, self.cpu.reg[15])
+
+    def interrupt(self):
+        self.cpu.reg[15] = (self.cpu.reg[15] - 1) & self.MASK64
+        self.cpu.mem.escribir(self.cpu.reg[15], self.cpu.PC)
+
+        self.cpu.PC = 0x1000
+
+    def return_interrupt(self):
+        self.cpu.PC = self.cpu.mem.leer(self.cpu.reg[15])
+        self.cpu.reg[15] = (self.cpu.reg[15] + 1) & self.MASK64
