@@ -3,11 +3,12 @@ class Instrucciones:
         self.cpu = cpu
 
     def ejecutar(self, instruccion):
-        opcode = instruccion & 0xFF
-        modo = (instruccion >> 8) & 0xF
-        r1 = (instruccion >> 12) & 0xF
-        r2 = (instruccion >> 16) & 0xF
-        constante = (instruccion >> 32) & 0xFFFFFFFF
+        opcode = (instruccion >> 56) & 0xFF
+        modo = (instruccion >> 52) & 0xF
+        r1 = (instruccion >> 48) & 0xF
+        r2 = (instruccion >> 44) & 0xF
+        constante = instruccion & 0xFFFFFFFF
+        print(f"Opcode: {opcode:02X}, modo: {modo}, r1: {r1}, r2: {r2}, constante: {constante}")
 
         match opcode:
             case 0x00: self.nop()
@@ -80,9 +81,16 @@ class Instrucciones:
         self.set_flags(res)
 
     def comp(self, r1, r2, k, modo):
-        val = k if modo == 0 else self.cpu.reg[r2]
-        res = (self.cpu.reg[r1] - val) & 0xFFFFFFFFFFFFFFFF
-        self.set_flags(res)
+        val1 = self.cpu.reg[r1]
+        val2 = k if modo == 0 else self.cpu.reg[r2]
+
+        z = 1 if val1 == val2 else 0
+        n = 1 if val1 < val2 else 0
+
+        print(f"comp: R{r1}={val1}, R{r2}={val2}, FLAGS Z={z} N={n}")
+
+        self.cpu.FLAGS['Z'] = z
+        self.cpu.FLAGS['N'] = n
 
     def load(self, r1, r2, k, modo):
         match modo:
