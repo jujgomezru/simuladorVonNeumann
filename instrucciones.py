@@ -55,6 +55,20 @@ class Instrucciones:
             addr = instr & ((1 << (pos - 16)) - 1)
             return self.store_direct(r1, addr)
 
+        # INC/DEC formato corto (14 bits)
+        if opcode in (0x48, 0x49):
+            # Asegurémonos de tener al menos 14 bits
+            if pos < 14:
+                raise ValueError(f"Instrucción demasiado corta para INC/DEC ({pos} bits)")
+            # Los 4 bits de r1 empiezan justo después del opcode:
+            # bits: [opcode(8)] [r1(4)] [--(2)]
+            r1 = instr & 0xF
+
+            if opcode == 0x48:
+                return self.inc(r1)
+            else:  # opcode == 0x49
+                return self.dec(r1)
+
         # Para LOAD directo o inmediato
         # requer al menos 18 bits: opcode+modo+ r1+ r2
         if pos < 18:
@@ -75,13 +89,7 @@ class Instrucciones:
 
         # LOAD r1, r2/const/mem
         if opcode == 0xC2:
-            return self.load(r1, r2, imm, modo)
-
-        # INC/DEC formato corto (14 bits)
-        if opcode == 0x48:
-            return self.inc(r1)
-        if opcode == 0x49:
-            return self.dec(r1)
+            return self.load(r1, r2, imm, modo)        
 
         match opcode:
             case 0xC2:             self.load(r1, r2, imm, modo)
