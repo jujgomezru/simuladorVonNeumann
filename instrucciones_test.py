@@ -4,10 +4,10 @@ class Instrucciones:
         self.MASK56 = (1 << 56) - 1
         self.MASK46 = (1 << 46) - 1
 
-    def __init__(self, cpu):
-        self.cpu = cpu
-        self.MASK56 = (1 << 56) - 1
-        self.MASK46 = (1 << 46) - 1
+    def to_signed(self, val: int, bits: int = 64) -> int:
+        """Interpreta val como signed two’s-complement de ‘bits’ bits."""
+        sign_bit = 1 << (bits - 1)
+        return val - (1 << bits) if (val & sign_bit) else val
 
     def ejecutar(self, instr: int, bit_len: int):
         pos = bit_len
@@ -150,8 +150,15 @@ class Instrucciones:
         if val==0: print("Error: División por cero"); self.cpu.running=False; return
         res=(self.cpu.reg[r1]//val)&0xFFFFFFFFFFFFFFFF; self.cpu.reg[r1]=res; self.set_flags(res)
     def comp(self, r1, r2, k, modo):
-        v1=self.cpu.reg[r1];v2=(self.cpu.reg[r2] if modo==0 else k)
-        self.cpu.FLAGS['Z']=1 if v1==v2 else 0; self.cpu.FLAGS['N']=1 if v1<v2 else 0
+        # lee los valores “en crudo” de registro o inmediato
+        v1 = self.cpu.reg[r1]
+        v2 = (self.cpu.reg[r2] if modo == 0 else k)
+        # conviértelos a signed de 64 bits:
+        s1 = self.to_signed(v1)
+        s2 = self.to_signed(v2)
+        # ahora Z y N según signed
+        self.cpu.FLAGS['Z'] = 1 if (s1 == s2) else 0
+        self.cpu.FLAGS['N'] = 1 if (s1 <  s2) else 0
 
     # Lógica
     def and_op(self, r1, r2, k, modo): res=self.cpu.reg[r1]& (self.cpu.reg[r2] if modo==0 else k);self.cpu.reg[r1]=res;self.set_flags(res)

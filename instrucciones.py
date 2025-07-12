@@ -4,75 +4,99 @@ class Instrucciones:
         self.MASK56 = (1 << 56) - 1
         self.MASK46 = (1 << 46) - 1
 
+    def to_signed(self, val: int, bits: int = 64) -> int:
+        """Interpreta val como signed two’s-complement de ‘bits’ bits."""
+        sign_bit = 1 << (bits - 1)
+        return val - (1 << bits) if (val & sign_bit) else val
+
     def ejecutar(self, instr: int, bit_len: int):
         pos = bit_len
         if pos < 8:
             raise ValueError(f"Instrucción demasiado corta ({pos} bits)")
 
-        # 1) Extraigo opcode (los 8 bits más significativos)
+        # opcode: 8 bits más significativos
         opcode = instr >> (pos - 8)
 
-        # 2) Single-byte ops: NOP y HALT
-        if opcode in (0x00, 0xFF):
-            if   opcode == 0x00:  return self.nop()
-            elif opcode == 0xFF:  return self.halt()
+        # NOP / HALT (simple-byte)
+        if opcode == 0x00:
+            return self.nop()
+        if opcode == 0xFF:
+            return self.halt()
 
-        # 3) Saltos y llamadas: sólo opcode + campo inmediato
-        JUMPS = {0xE0:'jmp', 0xE1:'jz', 0xEE:'jnz', 0xE2:'jn', 0xED:'jnn', 0xD8:'call'}
-        if opcode in JUMPS:
-            imm_size = pos - 8
-            dest = instr & ((1 << imm_size) - 1)
-            getattr(self, JUMPS[opcode])(dest)
-            return
+        # Saltos / llamadas: opcode + inmediato
+        if opcode in (0xE0, 0xE1, 0xEE, 0xE2, 0xED, 0xD8):
+            offset = pos - 8
+            dest = instr & ((1 << offset) - 1)
+            return getattr(self, {
+                0xE0: 'jmp', 0xE1: 'jz', 0xEE: 'jnz',
+                0xE2: 'jn', 0xED: 'jnn', 0xD8: 'call'
+            }[opcode])(dest)
 
+        # Para C2/C3 extraigo modo
+        if opcode in (0xC2, 0xC3):
+            modo = (instr >> (pos - 8 - 2)) & 0x3
+
+            # INDIRECTO (modo=3)
+            if modo == 3:
+                # 8 opcode +2 modo +4 r1 +4 r2 = 18 bits, resto = offset (pos-18)
+                r1 = (instr >> (pos - 8 - 2 - 4)) & 0xF
+                r2 = (instr >> (pos - 8 - 2 - 4 - 4)) & 0xF
+                off = instr & ((1 << (pos - 18)) - 1)
+                addr = self.cpu.reg[r2] + off
+                if opcode == 0xC2:
+                    return self.load_indirect(r1, addr)
+                else:
+                    return self.store_indirect(r1, addr)
+
+        # Para STORE directo (modo=2 implícito para store)
         if opcode == 0xC3:
-        # pos = bit_len
-        # extraigo r1 de los 4 bits que siguen al opcode
-            r1   = (instr >> (pos - 8 - 4)) & 0xF
-            # la dirección ocupa el resto: pos - (8+4+4) bits = pos - 16
+            # 8 opcode +4 r1 +4 zeros =16 bits, resto=addr
+            r1 = (instr >> (pos - 8 - 4)) & 0xF
             addr = instr & ((1 << (pos - 16)) - 1)
-            return self.store(r1, addr)
+            return self.store_direct(r1, addr)
 
-        
-
-        if opcode in (0x48, 0x49):
-            if pos < 14:
-                raise ValueError(f"INC/DEC demasiado corta ({pos} bits)")
-            shift = pos - 8              # 6 bits: [modo2][r1-4]
-            # modo = (instr >> (shift - 2)) & 0x3   # siempre 0
-            r1   = (instr >> (shift - 2 - 4)) & 0xF
-            if opcode == 0x48:
-                return self.inc(r1)
-            else:
-                return self.dec(r1)
-
-        # 4) Resto de instrucciones: necesitan modo (2b), r1(4b), r2(4b), y luego k = resto (inmediato)
+        # Para LOAD directo o inmediato
+        # requer al menos 18 bits: opcode+modo+ r1+ r2
         if pos < 18:
-            raise ValueError(f"Instrucción demasiado corta para modo+regs ({pos} bits)")
-
-        # 8 bits opcode  + 2 bits modo + 4 bits r1 + 4 bits r2 = 18 bits
+            raise ValueError(f"Instrucción demasiado corta para LOAD/ALU ({pos} bits)")
         shift = pos - 8
         modo = (instr >> (shift - 2)) & 0x3
-        r1   = (instr >> (shift - 2 - 4)) & 0xF
-        r2   = (instr >> (shift - 2 - 4 - 4)) & 0xF
+        r1   = (instr >> (shift - 6)) & 0xF
+        r2   = (instr >> (shift - 10)) & 0xF
+        # campo inmediato sin signo
+        imm  = instr & ((1 << (pos - 18)) - 1)
 
-        imm_size = pos - 18
-        k = instr & ((1 << imm_size) - 1)
+        # Sign-extension de inmediatos (dos complementos) si modo inmediato (modo==1)
+        if modo == 1:
+            width = pos - 18
+            sign_bit = 1 << (width - 1)
+            if imm & sign_bit:
+                imm = imm - (1 << width)
+
+        # LOAD r1, r2/const/mem
+        if opcode == 0xC2:
+            return self.load(r1, r2, imm, modo)
+
+        # INC/DEC formato corto (14 bits)
+        if opcode == 0x48:
+            return self.inc(r1)
+        if opcode == 0x49:
+            return self.dec(r1)
 
         match opcode:
-            case 0xC2:             self.load(r1, r2, k, modo)
-            case 0xC3:             self.store(r1, k)
+            case 0xC2:             self.load(r1, r2, imm, modo)
+            case 0xC3:             self.store(r1, imm)
             # Aritmética / Comparación
-            case 0x81:             self.add(r1, r2, k, modo)
-            case 0x82:             self.sub(r1, r2, k, modo)
-            case 0x83:             self.mul(r1, r2, k, modo)
-            case 0x84:             self.div(r1, r2, k, modo)
-            case 0x8A:             self.comp(r1, r2, k, modo)
+            case 0x81:             self.add(r1, r2, imm, modo)
+            case 0x82:             self.sub(r1, r2, imm, modo)
+            case 0x83:             self.mul(r1, r2, imm, modo)
+            case 0x84:             self.div(r1, r2, imm, modo)
+            case 0x8A:             self.comp(r1, r2, imm, modo)
 
             # Lógica de bits
-            case 0x11:  self.and_op(r1, r2, k, modo)
-            case 0x13:  self.or_op (r1, r2, k, modo)
-            case 0x12:  self.xor_op(r1, r2, k, modo)
+            case 0x11:  self.and_op(r1, r2, imm, modo)
+            case 0x13:  self.or_op (r1, r2, imm, modo)
+            case 0x12:  self.xor_op(r1, r2, imm, modo)
             case 0x10:  self.not_op(r1)
             case 0x21:  self.test(r1, r2)
 
@@ -89,8 +113,8 @@ class Instrucciones:
             case 0xD3:  self.store_sp(dest)
 
             # Corrimientos
-            case 0x28:  self.shl(r1, r2, k)
-            case 0x29:  self.shr(r1, r2, k)
+            case 0x28:  self.shl(r1, r2, imm)
+            case 0x29:  self.shr(r1, r2, imm)
 
             # Inc / Dec
             case 0x48:  self.inc(r1)
@@ -117,14 +141,6 @@ class Instrucciones:
     def jn(self, dest):         self.cpu.PC = dest if self.cpu.FLAGS['N']==1 else self.cpu.PC
     def jnn(self, dest):        self.cpu.PC = dest if self.cpu.FLAGS['N']==0 else self.cpu.PC
 
-    # Carga/Almacena
-    def load(self, r1, r2, k, modo):
-        if modo==0:    self.cpu.reg[r1]=self.cpu.reg[r2]
-        elif modo==1:  self.cpu.reg[r1]=k
-        elif modo==2:  self.cpu.reg[r1]=self.cpu.mem.leer(k)
-        else:         raise ValueError(f"Modo load inválido: {modo}")
-    def store(self, r1, addr):  self.cpu.mem.escribir(addr,self.cpu.reg[r1])
-
     # ALU
     def add(self, r1, r2, k, modo): res=(self.cpu.reg[r1] + (self.cpu.reg[r2] if modo==0 else k))&0xFFFFFFFFFFFFFFFF; self.cpu.reg[r1]=res; self.set_flags(res)
     def sub(self, r1, r2, k, modo): res=(self.cpu.reg[r1] - (self.cpu.reg[r2] if modo==0 else k))&0xFFFFFFFFFFFFFFFF; self.cpu.reg[r1]=res; self.set_flags(res)
@@ -134,8 +150,15 @@ class Instrucciones:
         if val==0: print("Error: División por cero"); self.cpu.running=False; return
         res=(self.cpu.reg[r1]//val)&0xFFFFFFFFFFFFFFFF; self.cpu.reg[r1]=res; self.set_flags(res)
     def comp(self, r1, r2, k, modo):
-        v1=self.cpu.reg[r1];v2=(self.cpu.reg[r2] if modo==0 else k)
-        self.cpu.FLAGS['Z']=1 if v1==v2 else 0; self.cpu.FLAGS['N']=1 if v1<v2 else 0
+        # lee los valores “en crudo” de registro o inmediato
+        v1 = self.cpu.reg[r1]
+        v2 = (self.cpu.reg[r2] if modo == 0 else k)
+        # conviértelos a signed de 64 bits:
+        s1 = self.to_signed(v1)
+        s2 = self.to_signed(v2)
+        # ahora Z y N según signed
+        self.cpu.FLAGS['Z'] = 1 if (s1 == s2) else 0
+        self.cpu.FLAGS['N'] = 1 if (s1 <  s2) else 0
 
     # Lógica
     def and_op(self, r1, r2, k, modo): res=self.cpu.reg[r1]& (self.cpu.reg[r2] if modo==0 else k);self.cpu.reg[r1]=res;self.set_flags(res)
@@ -163,8 +186,23 @@ class Instrucciones:
     def dec(self, r1): self.cpu.reg[r1]=(self.cpu.reg[r1]-1)&0xFFFFFFFFFFFFFFFF
 
     # SP
-    def load_sp(self, r1):self.cpu.reg[r1]=self.cpu.reg[15]
-    def store_sp(self, addr):self.cpu.mem.escribir(addr,self.cpu.reg[15])
+    def store_direct(self, r1, addr):
+        self.cpu.mem.escribir(addr, self.cpu.reg[r1])
+
+    def load(self, r1, r2, k, modo):
+        if modo == 0:
+            self.cpu.reg[r1] = self.cpu.reg[r2]
+        elif modo == 1:
+            self.cpu.reg[r1] = k
+        elif modo == 2:
+            self.cpu.reg[r1] = self.cpu.mem.leer(k)
+        else:
+            raise ValueError(f"Modo LOAD inválido: {modo}")
+
+    def store_indirect(self, r1, addr):
+        self.cpu.mem.escribir(addr, self.cpu.reg[r1])
+    def load_indirect(self, r1, addr):
+        self.cpu.reg[r1] = self.cpu.mem.leer(addr)
 
     # Interrupciones
     def interrupt(self):sp=15;self.cpu.reg[sp]=(self.cpu.reg[sp]-1)&0xFFFFFFFFFFFFFFFF;self.cpu.mem.escribir(self.cpu.reg[sp],self.cpu.PC);self.cpu.PC=0x1000
