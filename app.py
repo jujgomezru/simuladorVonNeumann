@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import scrolledtext
-from main import run_instructions
+from main import run_instructions, run_assembly
 
 class SimulatorGUI:
     def __init__(self, root):
