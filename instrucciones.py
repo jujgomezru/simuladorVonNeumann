@@ -195,7 +195,10 @@ class Instrucciones:
 
     # SP
     def store_direct(self, r1, addr):
-        self.cpu.mem.escribir(addr, self.cpu.reg[r1])
+            val = self.cpu.reg[r1]
+            print(f"DEBUG: store_direct R{r1} -> mem[{hex(addr)}] = {val}")
+            self.cpu.mem.escribir(addr, val)
+        # self.cpu.mem.escribir(addr, self.cpu.reg[r1])
 
     def load(self, r1, r2, k, modo):
         if modo == 0:
@@ -208,7 +211,11 @@ class Instrucciones:
             raise ValueError(f"Modo LOAD inválido: {modo}")
 
     def store_indirect(self, r1, addr):
-        self.cpu.mem.escribir(addr, self.cpu.reg[r1])
+        # self.cpu.mem.escribir(addr, self.cpu.reg[r1])
+        val = self.cpu.reg[r1]
+        print(f"DEBUG: store_indirect R{r1} -> mem[{hex(addr)}] = {val}")
+        self.cpu.mem.escribir(addr, val)
+
     def load_indirect(self, r1, addr):
         self.cpu.reg[r1] = self.cpu.mem.leer(addr)
 

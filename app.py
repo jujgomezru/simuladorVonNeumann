@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import scrolledtext
 from main import run_instructions
+from assembler import assemble_lines
 
 class SimulatorGUI:
     def __init__(self, root):
@@ -76,9 +77,15 @@ class SimulatorGUI:
         reg_q = self.reg_entry.get()
         mem_q = self.mem_entry.get()
 
-        # Leer instrucciones
+        # Leer pseudo-código de la caja de texto
         raw = self.instr_text.get("1.0", tk.END).strip().splitlines()
-        instrs = [line.strip() for line in raw if line.strip()]
+        # Traducir a binario
+        try:
+            instrs = assemble_lines(raw)
+        except Exception as e:
+            self.output_text.insert(tk.END, f"Error en ensamblado: {e}\\n")
+            self.output_text.configure(state="disabled")
+            return
 
         # Parsear base
         try:
