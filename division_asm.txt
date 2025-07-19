@@ -1,0 +1,11 @@
+LOADK   R1, 0x24
+LOADK   R2, 0x18
+LOADK   R3, 0x0
+CMP     R1, R2
+JN      0xD4
+SUB     R1, R2
+INC     R3
+JMP     0xCF
+STOREM  R3, 0x8000
+STOREM  R1, 0xFF00
+HALT
