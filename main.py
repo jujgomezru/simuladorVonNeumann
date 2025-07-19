@@ -2,6 +2,7 @@ from instrucciones import Instrucciones
 from preprocessor import Preprocessor
 from assembler import ensamblar     
 from linker_loader import link_and_load
+import ast
 
 MEMORY_SIZE = 2**16
 
@@ -40,18 +41,26 @@ class CPU:
 
 class Cargador:
     @staticmethod
-    def parse_binary(s:str):
-        b=s.replace(' ','').replace('\n','')
-        return int(b,2),len(b)
-    @staticmethod
-    def cargar(memoria,instrs,base_addr=0):
-        for i,word in enumerate(instrs):
-            if isinstance(word,str):
-                v,ln=Cargador.parse_binary(word)
-                memoria.escribir(base_addr+i,(v,ln))
-            else:
-                memoria.escribir(base_addr+i,word)
+    def parse_binary(s: str):
+        b = s.replace(' ', '').replace('\n', '')
+        return int(b, 2), len(b)
 
+    @staticmethod
+    def cargar(memoria, instrs, base_addr=0):
+        for i, word in enumerate(instrs):
+            if isinstance(word, str):
+                word = word.strip()
+                if word.startswith("("):
+                    try:
+                        word = ast.literal_eval(word)
+                        assert isinstance(word, tuple) and len(word) == 2
+                    except Exception:
+                        raise ValueError(f"Instrucción inválida como tupla: {word}")
+                elif set(word).issubset({'0', '1'}):  # binario
+                    word = Cargador.parse_binary(word)
+                else:
+                    raise ValueError(f"Formato de instrucción no reconocido: {word}")
+            memoria.escribir(base_addr + i, word)
 # utilidad para GUI
 from preprocessor import Preprocessor
 from assembler import ensamblar
