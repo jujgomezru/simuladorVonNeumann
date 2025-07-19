@@ -5,9 +5,15 @@ OPTAB = {
     'SUB':   0x82,
     'MUL':   0x83,
     'DIV':   0x84,
-    'COMP':  0x8A,
     'LOAD':  0xC2,
     'STORE': 0xC3,
+    'COMP':  0x8A,
+    'JMP':   0xE0,
+    'JZ':    0xE1,
+    'JNZ':   0xEE,
+    'JN':    0xE2,
+    'JNN':   0xED,
+    'CALL':  0xD8,
     'HALT':  0xFF
 }
 
@@ -70,6 +76,15 @@ def ensamblar(source: str):
             print(f"[ASM] {mnem} R{r1},{op2_tok} → mode={mode_e}, r1={r1_e}, r2={r2_e}")
 
             output.append((word, bits, False))
+            locctr += 1
+            continue
+
+        if mnem in ('JMP', 'JZ', 'JNZ', 'JN', 'JNN', 'CALL'):
+            target = parts[1]
+            dest = int(target, 16) if target.startswith("0x") else int(target)
+            opcode = OPTAB[mnem]
+            word = (opcode << 56) | (dest & ((1 << 56) - 1))
+            output.append((word, 64, False))
             locctr += 1
             continue
 

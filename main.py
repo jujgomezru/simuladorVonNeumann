@@ -41,26 +41,24 @@ class CPU:
 
 class Cargador:
     @staticmethod
-    def parse_binary(s: str):
-        b = s.replace(' ', '').replace('\n', '')
-        return int(b, 2), len(b)
+    def parse_binary(s:str):
+        b=s.replace(' ','').replace('\n','')
+        return int(b,2),len(b)
 
     @staticmethod
-    def cargar(memoria, instrs, base_addr=0):
+    def cargar(memoria,instrs,base_addr=0):
         for i, word in enumerate(instrs):
             if isinstance(word, str):
-                word = word.strip()
-                if word.startswith("("):
-                    try:
-                        word = ast.literal_eval(word)
-                        assert isinstance(word, tuple) and len(word) == 2
-                    except Exception:
-                        raise ValueError(f"Instrucción inválida como tupla: {word}")
-                elif set(word).issubset({'0', '1'}):  # binario
-                    word = Cargador.parse_binary(word)
-                else:
-                    raise ValueError(f"Formato de instrucción no reconocido: {word}")
-            memoria.escribir(base_addr + i, word)
+                try:
+                    word = eval(word)
+                except:
+                    pass
+
+            if isinstance(word, tuple) and isinstance(word[0], int):
+                memoria.escribir(base_addr + i, word)
+            else:
+                v, ln = Cargador.parse_binary(str(word))
+                memoria.escribir(base_addr + i, (v, ln))
 # utilidad para GUI
 from preprocessor import Preprocessor
 from assembler import ensamblar
