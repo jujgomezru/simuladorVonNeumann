@@ -1,97 +1,43 @@
-"""
-Simple Preprocessor for the Simulated CPU Assembler
-
-Features:
-- #define NAME VALUE   : define simple text macros
-- #include "FILE"     : include other source files
-
-Designed to be minimal, easy to extend, and independent of project internals.
-"""
-import os
 import re
+from pathlib import Path
 
 class Preprocessor:
-    def __init__(self, include_paths=None):
-        # Macro table: name -> replacement text
+    macro_pattern  = re.compile(r'^#define\s+([A-Za-z_]\w*)\s+(.+)$')
+    include_pattern = re.compile(r'^#include\s+"([^"]+)"')
+
+    def __init__(self, include_dir='includes'):
         self.macros = {}
-        # Directories to search for include files (relative or absolute)
-        self.include_paths = include_paths or []
-        # Internal state for preventing recursive includes
-        self._processed_files = set()
-        self._output_lines = []
+        self.include_dir = Path(include_dir)
 
-    def preprocess(self, filepath):
-        """
-        Process the given file, handling #define and #include directives,
-        and return the resulting text.
-        """
-        # Reset state for each top-level run
-        self._processed_files.clear()
-        self._output_lines.clear()
+    def process_file(self, filepath: str) -> str:
+        lines = []
+        data = Path(filepath).read_bytes()
+        if data.startswith(b'\xef\xbb\xbf'):
+            content = data.decode('utf-8-sig')
+        elif data.startswith(b'\xff\xfe') or data.startswith(b'\xfe\xff'):
+            content = data.decode('utf-16')
+        else:
+            try:
+                content = data.decode('utf-8')
+            except UnicodeDecodeError:
+                content = data.decode('cp1252')
+        for raw in content.splitlines():
+            if m := self.macro_pattern.match(raw):
+                name, val = m.groups()
+                self.macros[name] = val
+            elif m := self.include_pattern.match(raw):
+                inc = self.include_dir / m.group(1)
+                lines.append(self.process_file(str(inc)))
+            else:
+                lines.append(self.expand_macros(raw))
+        return '\n'.join(lines)
 
-        abs_path = os.path.abspath(filepath)
-        self._process_file(abs_path)
-        return ''.join(self._output_lines)
+    def expand_macros(self, line: str) -> str:
+        for name, val in self.macros.items():
+            line = re.sub(rf"\b{name}\b", val, line)
+        return line
 
-    def _process_file(self, abs_path):
-        # Avoid including the same file twice
-        if abs_path in self._processed_files:
-            return
-        self._processed_files.add(abs_path)
-
-        base_dir = os.path.dirname(abs_path)
-        try:
-            with open(abs_path, 'r', encoding='utf-8') as f:
-                for raw_line in f:
-                    line = raw_line.rstrip('\n')
-                    stripped = line.lstrip()
-
-                    # Handle #define
-                    if stripped.startswith('#define '):
-                        parts = stripped[len('#define '):].split(maxsplit=1)
-                        name = parts[0]
-                        value = parts[1] if len(parts) > 1 else ''
-                        self.macros[name] = value
-
-                    # Handle #include
-                    elif stripped.startswith('#include '):
-                        match = re.match(r'#include\s+"([^"]+)"', stripped)
-                        if not match:
-                            raise SyntaxError(f"Invalid include directive: {line}")
-                        include_name = match.group(1)
-                        # Search in base directory first, then other include_paths
-                        search_dirs = [base_dir] + self.include_paths
-                        for inc_dir in search_dirs:
-                            candidate = os.path.join(inc_dir, include_name)
-                            if os.path.isfile(candidate):
-                                self._process_file(os.path.abspath(candidate))
-                                break
-                        else:
-                            raise FileNotFoundError(f"Included file not found: {include_name}")
-
-                    # Normal line: perform macro expansion
-                    else:
-                        output = self._expand_macros(line)
-                        self._output_lines.append(output + '\n')
-        except IOError as e:
-            raise IOError(f"Error reading file {abs_path}: {e}")
-
-    def _expand_macros(self, line):
-        # Split on non-word characters to avoid accidental substrings
-        tokens = re.split(r'(\W+)', line)
-        for i, tok in enumerate(tokens):
-            if tok in self.macros:
-                tokens[i] = self.macros[tok]
-        return ''.join(tokens)
-
-# Example CLI usage
 if __name__ == '__main__':
     import sys
-    if len(sys.argv) < 2:
-        print("Usage: python preprocessor.py <source-file>")
-        sys.exit(1)
-    src = sys.argv[1]
-    # Add any additional include directories here
-    pre = Preprocessor(include_paths=[os.getcwd()])
-    result = pre.preprocess(src)
-    sys.stdout.write(result)
+    text = Preprocessor().process_file(sys.argv[1])
+    sys.stdout.buffer.write(text.encode('utf-8'))
