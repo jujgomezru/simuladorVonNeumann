@@ -1,3 +1,3 @@
-LOAD R1, 10
-ADD  R1, 20
+#include "math.inc"
+LOAD R2, CONST
 HALT
