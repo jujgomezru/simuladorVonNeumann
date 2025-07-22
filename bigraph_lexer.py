@@ -1,4 +1,18 @@
 import ply.lex as lex
+from dataclasses import dataclass
+
+def t_ignore_COMMENT_LINE(t):
+    r'//.*'
+    t.lexer.lineno += 1
+    # simplemente descartamos el token
+    pass
+
+ # Comentarios de bloque: /* ... */
+def t_ignore_COMMENT_BLOCK(t):
+    r'/\*(.|\n)*?\*/'
+    t.lexer.lineno += t.value.count('\n')
+    pass
+
 
 """
 TOKENS NO UTILIZADOS ACTUALMENTE EN EL PARSER:
@@ -19,6 +33,7 @@ OPERADORES DE BIGRAFOS:
 - SHARE         (&)   - compartir enlace
 - TENSOR        (*)   - producto tensorial
 - UNLINK        (!)   - desenlace
+- EQUALS        (=)   - igualdad
 
 CONSTRUCTORES Y ELEMENTOS:
 - EDGE          - edge (arista)
@@ -65,6 +80,19 @@ SIGNATURE, RULE, BIGRAPH, LPAREN, RPAREN, LBRACE, RBRACE, COMMA, SEMICOLON,
 COLON, ARROW
 """
 
+@dataclass
+class Token:
+    type: str
+    value: any
+    lineno: int
+    column: int
+    lexpos: int
+    text: str
+
+def find_column(input_text, lexpos):
+    last_cr = input_text.rfind('\n', 0, lexpos)
+    return lexpos - last_cr
+
 # Tokens para el lenguaje de bigrafos
 tokens = [
     # Identificadores y literales
@@ -88,6 +116,7 @@ tokens = [
     'UNLINK',       # !   (desenlace)
     'SHARE',        # &   (compartir enlace)
     'BIND',         # @   (bind a nombre)
+    'EQUALS',       # =   (igualdad)
     
     # Constructores de bigrafos
     'NODE',         # node
@@ -108,6 +137,8 @@ tokens = [
     'WHEN',         # when
     'THEN',         # then
     'WHERE',        # where
+    'WITH',         # with
+    'LINKS',        # links
     
     # Cuantificadores y modalidades
     'FORALL',       # forall
@@ -128,6 +159,7 @@ tokens = [
     'NEWLINE', 'ARROW', 'DARROW',
     
     # Comentarios y espacios en blanco (ignorados)
+    'COMMENT'
 ]
 
 # Palabras reservadas
@@ -154,6 +186,8 @@ reserved = {
     'global': 'GLOBAL',
     'mobile': 'MOBILE',
     'static': 'STATIC',
+    'with': 'WITH',
+    'links': 'LINKS'
 }
 
 # Ignorar espacios, tabs y retornos de carro
@@ -182,6 +216,7 @@ t_LINK = r'~'
 t_UNLINK = r'!'
 t_SHARE = r'&'
 t_BIND = r'@'
+t_EQUALS = r'='
 
 # Delimitadores
 t_LPAREN = r'\('
@@ -224,22 +259,6 @@ def t_IDENTIFIER(t):
     t.type = reserved.get(t.value, 'IDENTIFIER')
     return t
 
-# Comentarios de línea con #
-def t_COMMENT_HASH(t):
-    r'\#.*'
-    pass  # Ignorar comentarios
-
-# Comentarios de línea con //
-def t_COMMENT_LINE(t):
-    r'//.*'
-    pass  # Ignorar comentarios
-
-# Comentarios de bloque
-def t_COMMENT_BLOCK(t):
-    r'/\*(.|\n)*?\*/'
-    t.lexer.lineno += t.value.count('\n')
-    pass  # Ignorar comentarios
-
 # Saltos de línea
 def t_NEWLINE(t):
     r'\n+'
@@ -250,23 +269,46 @@ def t_NEWLINE(t):
 def t_error(t):
     print(f"Bigraph lexical error at line {t.lexer.lineno}: illegal character '{t.value[0]}'")
     t.lexer.skip(1)
+class WrappedLexer:
+    def __init__(self, ply_lexer):
+        self.lexer = ply_lexer
+        self.text = ''
+
+    def input(self, text):
+        self.text = text
+        self.lexer.input(text)
+
+    def token(self):
+        ply_tok = self.lexer.token()
+        if not ply_tok:
+            return None
+        col = find_column(self.text, ply_tok.lexpos)
+        lines = self.text.split('\n')
+        idx = ply_tok.lineno - 1
+        text_line = lines[idx] if 0 <= idx < len(lines) else ''
+        # construimos el Token propio
+        return Token(
+            type=ply_tok.type,
+            value=ply_tok.value,
+            lineno=ply_tok.lineno,
+            column=col,
+            lexpos=ply_tok.lexpos,
+            text=text_line
+        )
 
 # Crear el lexer
-lexer = lex.lex()
+_ply_lexer = lex.lex()
+lexer = WrappedLexer(_ply_lexer)
 
 # Función de utilidad para testing
 def test_lexer(input_text):
-    """Función para probar el lexer con texto de entrada"""
     lexer.input(input_text)
-    tokens_found = []
-    
+    tokens = []
     while True:
         tok = lexer.token()
-        if not tok:
-            break
-        tokens_found.append((tok.type, tok.value, tok.lineno))
-    
-    return tokens_found
+        if not tok: break
+        tokens.append(tok)
+    return tokens
 
 # Ejemplo de uso y testing
 if __name__ == '__main__':
@@ -294,5 +336,5 @@ if __name__ == '__main__':
     print("=== Testing Bigraph Lexer ===")
     tokens = test_lexer(sample_code)
     
-    for token_type, value, line in tokens:
-        print(f"Line {line:2}: {token_type:12} -> {value}")
+    for tok in tokens:
+        print(f"Line {tok.lineno:2}: {tok.type:12} -> {tok.value}")
