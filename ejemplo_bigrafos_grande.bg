@@ -1,0 +1,190 @@
+// Ejemplo de bigrafos de tamaño grande
+// Sistema complejo de gestión de oficina con múltiples departamentos
+
+// ========== CONTROLES BÁSICOS ==========
+// Personal de oficina
+atomic control Employee : 2;
+atomic control Manager : 3;
+atomic control Director : 4;
+atomic control Intern : 1;
+atomic control Consultant : 2;
+
+// Espacios físicos
+atomic control Office : 1;
+atomic control MeetingRoom : 2;
+atomic control Cubicle : 1;
+atomic control Desk : 0;
+atomic control Chair : 0;
+control Floor : 2;
+control Building : 1;
+
+// Recursos tecnológicos
+atomic control Computer : 1;
+atomic control Printer : 1;
+atomic control Phone : 0;
+atomic control Projector : 0;
+atomic control Screen : 0;
+
+// Documentos y datos
+atomic control Document : 2;
+atomic control Report : 3;
+atomic control Contract : 2;
+atomic control Email : 1;
+atomic control Database : 2;
+
+// Estados y procesos
+atomic control Working : 0;
+atomic control Meeting : 0;
+atomic control Available : 0;
+atomic control Busy : 0;
+atomic control OnBreak : 0;
+atomic control Traveling : 0;
+
+// Departamentos
+control HumanResources : 1;
+control Finance : 1;
+control Marketing : 1;
+control Development : 1;
+control Sales : 1;
+control Support : 1;
+
+// Proyectos y tareas
+atomic control Project : 3;
+atomic control Task : 2;
+atomic control Deadline : 1;
+atomic control Budget : 2;
+
+// ========== SIGNATURA COMPLETA ==========
+signature {
+    Employee : 2,
+    Manager : 3,
+    Director : 4,
+    Intern : 1,
+    Consultant : 2,
+    Office : 1,
+    MeetingRoom : 2,
+    Cubicle : 1,
+    Desk : 0,
+    Chair : 0,
+    Floor : 2,
+    Building : 1,
+    Computer : 1,
+    Printer : 1,
+    Phone : 0,
+    Projector : 0,
+    Screen : 0,
+    Document : 2,
+    Report : 3,
+    Contract : 2,
+    Email : 1,
+    Database : 2,
+    Working : 0,
+    Meeting : 0,
+    Available : 0,
+    Busy : 0,
+    OnBreak : 0,
+    Traveling : 0,
+    HumanResources : 1,
+    Finance : 1,
+    Marketing : 1,
+    Development : 1,
+    Sales : 1,
+    Support : 1,
+    Project : 3,
+    Task : 2,
+    Deadline : 1,
+    Budget : 2
+}
+
+// ========== REGLAS DE GESTIÓN DE PERSONAL ==========
+rule hire_employee: Available => Employee;
+rule promote_employee: Employee => Manager;
+rule assign_office: Employee => Office;
+rule assign_cubicle: Employee => Cubicle;
+rule start_internship: Available => Intern;
+rule hire_consultant: Available => Consultant;
+
+// ========== REGLAS DE ESTADO DE TRABAJO ==========
+rule start_work: Available => Working;
+rule go_to_meeting: Working => Meeting;
+rule finish_meeting: Meeting => Available;
+rule take_break: Working => OnBreak;
+rule return_from_break: OnBreak => Available;
+rule start_travel: Available => Traveling;
+rule return_from_travel: Traveling => Available;
+rule become_busy: Available => Busy;
+rule finish_task: Busy => Available;
+
+// ========== REGLAS DE PROYECTOS ==========
+rule create_project: Available => Project;
+rule assign_task: Project => Task;
+rule set_deadline: Task => Deadline;
+rule allocate_budget: Project => Budget;
+rule complete_project: Project => Available;
+
+// ========== REGLAS DE DOCUMENTACIÓN ==========
+rule create_document: Available => Document;
+rule generate_report: Document => Report;
+rule sign_contract: Document => Contract;
+rule send_email: Available => Email;
+rule update_database: Document => Database;
+
+// ========== REGLAS DE RECURSOS ==========
+rule assign_computer: Employee => Computer;
+rule use_printer: Document => Printer;
+rule book_meeting_room: Meeting => MeetingRoom;
+rule setup_projector: MeetingRoom => Projector;
+
+// ========== REGLAS DEPARTAMENTALES ==========
+rule assign_to_hr: Employee => HumanResources;
+rule assign_to_finance: Employee => Finance;
+rule assign_to_marketing: Employee => Marketing;
+rule assign_to_development: Employee => Development;
+rule assign_to_sales: Employee => Sales;
+rule assign_to_support: Employee => Support;
+
+// ========== DEFINICIONES DE BIGRAFOS BÁSICOS ==========
+bigraph junior_employee => Employee;
+bigraph senior_manager => Manager;
+bigraph company_director => Director;
+bigraph new_intern => Intern;
+bigraph external_consultant => Consultant;
+
+// Espacios de trabajo
+bigraph executive_office => Office;
+bigraph conference_room => MeetingRoom;
+bigraph work_cubicle => Cubicle;
+bigraph standard_desk => Desk;
+bigraph office_chair => Chair;
+
+// Recursos tecnológicos
+bigraph workstation => Computer;
+bigraph network_printer => Printer;
+bigraph desk_phone => Phone;
+bigraph meeting_projector => Projector;
+
+// ========== BIGRAFOS DEPARTAMENTALES ==========
+bigraph hr_department => HumanResources;
+bigraph finance_department => Finance;
+bigraph marketing_department => Marketing;
+bigraph dev_department => Development;
+bigraph sales_department => Sales;
+bigraph support_department => Support;
+
+// ========== BIGRAFOS DE PROYECTOS ==========
+bigraph software_project => Project;
+bigraph development_task => Task;
+bigraph project_deadline => Deadline;
+bigraph project_budget => Budget;
+
+// ========== BIGRAFOS COMPUESTOS ==========
+bigraph office_floor => Floor;
+bigraph company_building => Building;
+bigraph complete_workspace => Building;
+bigraph corporate_structure => Building;
+
+// ========== BIGRAFOS DE PROCESOS ==========
+bigraph business_process => Project;
+bigraph workflow_system => Task;
+bigraph management_system => Manager;
+bigraph organizational_chart => Director;

@@ -1,0 +1,13 @@
+// Test de integración del parser de bigrafos
+atomic control Person : 1;
+atomic control Room : 2;
+control Building : 0;
+
+signature {
+    Person : 1,
+    Room : 2,
+    Building : 0
+}
+
+rule enter_room: Person => Room;
+bigraph house => Building;

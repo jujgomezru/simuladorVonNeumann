@@ -4,6 +4,7 @@ import tempfile
 import os
 
 from main import run_instructions, run_assembly
+from bigraph_compiler import run_bigraph_system
 
 class SimulatorGUI:
     def __init__(self, root):
@@ -20,8 +21,10 @@ class SimulatorGUI:
         self.mode_var = tk.StringVar(value="asm")
         asm_rb = tk.Radiobutton(mode_frame, text="Ensamblador", variable=self.mode_var, value="asm")
         bin_rb = tk.Radiobutton(mode_frame, text="Binario/Tuplas", variable=self.mode_var, value="bin")
+        bigraph_rb = tk.Radiobutton(mode_frame, text="Bigrafos", variable=self.mode_var, value="bigraph")
         asm_rb.pack(side="left", padx=5)
         bin_rb.pack(side="left", padx=5)
+        bigraph_rb.pack(side="left", padx=5)
 
         # -----------------------
         # Frame para configuración de base y consultas
@@ -49,6 +52,10 @@ class SimulatorGUI:
         instr_label.pack(anchor="w", padx=10)
         self.instr_text = scrolledtext.ScrolledText(root, width=80, height=15)
         self.instr_text.pack(padx=10, pady=5)
+        
+        # Botón para cargar ejemplo según el modo
+        example_btn = tk.Button(root, text="Cargar Ejemplo", command=self.load_example)
+        example_btn.pack(pady=2)
 
         # -----------------------
         # Botón Ejecutar
@@ -87,6 +94,50 @@ class SimulatorGUI:
                     continue
         return items
 
+    def load_example(self):
+        """Cargar ejemplo según el modo seleccionado"""
+        mode = self.mode_var.get()
+        
+        if mode == "asm":
+            example = """#include "math.inc"
+LOAD R2, CONST
+ADD R2, 10
+STORE R2, 0x200
+HALT"""
+        
+        elif mode == "bigraph":
+            example = """// Sistema de Bigrafos - Personas en Espacios
+// Definicion de Controles
+atomic control Person : 1;
+atomic control Room : 2;
+atomic control Building : 0;
+atomic control Car : 2;
+
+// Signatura del Sistema
+signature {
+    Person : 1,
+    Room : 2,
+    Building : 0,
+    Car : 2
+};
+
+// Reglas de Reaccion
+rule enter_room: Person => Room;
+rule exit_room: Room => Person;
+rule enter_car: Person => Car;
+
+// Configuraciones Iniciales
+bigraph city => Building;
+bigraph demo => Person;"""
+        
+        else:  # modo binario
+            example = """11111111
+10000001 00000001 00000111
+11111111"""
+        
+        self.instr_text.delete("1.0", tk.END)
+        self.instr_text.insert("1.0", example)
+
 
     def run(self):
         # Habilitar salida
@@ -114,6 +165,21 @@ class SimulatorGUI:
                     tmp_path = tmp.name
                 cpu, mem = run_assembly(tmp_path, base=base)
                 os.unlink(tmp_path)
+
+            elif self.mode_var.get() == "bigraph":
+                # Modo bigrafos: compilar y ejecutar sistema de bigrafos  
+                # Usar codificación del sistema (sin especificar = usa la por defecto)
+                with tempfile.NamedTemporaryFile('w', delete=False, suffix=".bg") as tmp:
+                    tmp.write("\n".join(raw_lines))
+                    tmp_path = tmp.name
+                result = run_bigraph_system(tmp_path)
+                os.unlink(tmp_path)
+                
+                # Mostrar resultados del sistema de bigrafos
+                self.output_text.insert(tk.END, "=== Ejecución de Sistema de Bigrafos ===\n")
+                self.output_text.insert(tk.END, result)
+                self.output_text.configure(state="disabled")
+                return
 
             else:
                 # Modo binario/tuplas:

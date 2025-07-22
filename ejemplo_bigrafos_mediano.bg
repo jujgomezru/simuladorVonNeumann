@@ -1,0 +1,50 @@
+// Ejemplo de bigrafos de tamaño mediano
+// Sistema de comunicación con procesos y canales
+
+// Definición de controles básicos
+atomic control Process : 2;
+atomic control Channel : 1;
+atomic control Message : 0;
+atomic control Server : 3;
+control Network : 0;
+control Node : 1;
+
+// Controles para estados
+atomic control Active : 0;
+atomic control Waiting : 0;
+atomic control Busy : 0;
+
+// Signatura del sistema
+signature {
+    Process : 2,
+    Channel : 1,
+    Message : 0,
+    Server : 3,
+    Network : 0,
+    Node : 1,
+    Active : 0,
+    Waiting : 0,
+    Busy : 0
+}
+
+// Reglas de comunicación
+rule send_message: Process => Channel;
+rule receive_message: Channel => Process;
+rule server_process: Server => Process;
+rule activate_process: Waiting => Active;
+rule make_busy: Active => Busy;
+
+// Reglas de red
+rule connect_nodes: Node => Network;
+rule create_channel: Network => Channel;
+
+// Definiciones de bigrafos del sistema
+bigraph client_process => Process;
+bigraph message_channel => Channel;
+bigraph active_server => Server;
+bigraph communication_node => Node;
+
+// Bigrafos compuestos
+bigraph simple_network => Network;
+bigraph client_server_system => Server;
+bigraph distributed_system => Network;
