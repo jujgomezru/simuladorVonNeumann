@@ -31,7 +31,7 @@ class CPU:
         self.PC += 1
 
     def decode_execute(self): self.instrucciones.ejecutar(self.IR,self.IR_len)
-    def ejecutar(self, max_instrucciones=100):
+    def ejecutar(self, max_instrucciones=1000):
         cuenta = 0
         while self.running and cuenta < max_instrucciones:
             self.fetch()
@@ -70,7 +70,7 @@ def run_assembly(src_file, base=0):
     mem  = link_and_load(prog, base)
     cpu  = CPU(mem)
     cpu.PC = base
-    cpu.ejecutar(max_instrucciones=50)  # ← CAMBIO AQUÍ
+    cpu.ejecutar(max_instrucciones=1000)  # ← CAMBIO AQUÍ
     return cpu, mem
 
 
