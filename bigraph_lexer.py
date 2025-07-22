@@ -1,19 +1,6 @@
 import ply.lex as lex
 from dataclasses import dataclass
 
-def t_ignore_COMMENT_LINE(t):
-    r'//.*'
-    t.lexer.lineno += 1
-    # simplemente descartamos el token
-    pass
-
- # Comentarios de bloque: /* ... */
-def t_ignore_COMMENT_BLOCK(t):
-    r'/\*(.|\n)*?\*/'
-    t.lexer.lineno += t.value.count('\n')
-    pass
-
-
 """
 TOKENS NO UTILIZADOS ACTUALMENTE EN EL PARSER:
 ==============================================
@@ -191,6 +178,8 @@ reserved = {
 
 # Ignorar espacios, tabs y retornos de carro
 t_ignore = ' \t\r'
+t_ignore_COMMENT_LINE = r'//.*'  # ahora también ignoras //… hasta el fin de línea
+t_ignore_COMMENT_BLOCK = r'/\*(.|\n)*?\*/'
 
 # Ignorar BOM en archivos UTF-8
 def t_BOM(t):

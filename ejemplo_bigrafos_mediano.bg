@@ -39,12 +39,12 @@ rule connect_nodes: Node => Network;
 rule create_channel: Network => Channel;
 
 // Definiciones de bigrafos del sistema
-bigraph client_process => Process;
-bigraph message_channel => Channel;
-bigraph active_server => Server;
-bigraph communication_node => Node;
+bigraph client_process = Process;
+bigraph message_channel = Channel;
+bigraph active_server   = Server;
+bigraph communication_node = Node;
 
 // Bigrafos compuestos
-bigraph simple_network => Network;
-bigraph client_server_system => Server;
-bigraph distributed_system => Network;
+bigraph simple_network       = Network;
+bigraph client_server_system = Server;
+bigraph distributed_system   = Network;

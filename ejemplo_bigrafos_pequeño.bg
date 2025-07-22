@@ -10,4 +10,4 @@ signature {
 }
 
 rule enter_room: Person => Room;
-bigraph house => Building;
+bigraph house = Building;
