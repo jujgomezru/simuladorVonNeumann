@@ -12,11 +12,107 @@ Este módulo implementa la semántica de bigrafos, incluyendo:
 from typing import Dict, List, Set, Tuple, Optional, Union
 from dataclasses import dataclass, field
 from enum import Enum
+from collections import namedtuple
 import copy
+from bigraph_parser import VarDecl, BiGraph, Reaction, Signature, Link
 
 # ============================================================================
 # ESTRUCTURAS BÁSICAS DE BIGRAFOS
 # ============================================================================
+
+class Environment:
+    """
+    Tabla de símbolos y almacenamiento de variables,
+    con soporte para escalares y arreglos multidimensionales.
+    """
+    def __init__(self):
+        # vars: nombre -> estructura de datos (int, float, str o lista anidada)
+        self.vars = {}
+
+    def declare(self, name, type_name, dimensions):
+        if name in self.vars:
+            raise SemanticError(f"Variable '{name}' ya declarada")
+        # Construir estructura inicial: escalares o listas anidadas de tamaño fijo
+        if not dimensions:
+            self.vars[name] = None
+        else:
+            # crea una lista multidim de None
+            def make_array(sizes):
+                size, *rest = sizes
+                arr = [None] * size
+                return [make_array(rest) for _ in range(size)] if rest else arr
+            self.vars[name] = make_array(dimensions)
+
+    def assign(self, name, value, indices=None):
+        if name not in self.vars:
+            raise SemanticError(f"Variable '{name}' no declarada")
+        target = self.vars[name]
+        if indices:
+            # navegar hasta la celda adecuada
+            for idx in indices[:-1]:
+                if idx < 0 or idx >= len(target):
+                    raise SemanticError(f"Índice {idx} fuera de rango en '{name}'")
+                target = target[idx]
+            last = indices[-1]
+            if last < 0 or last >= len(target):
+                raise SemanticError(f"Índice {last} fuera de rango en '{name}'")
+            target[last] = value
+        else:
+            self.vars[name] = value
+
+    def get(self, name, indices=None):
+        if name not in self.vars:
+            raise SemanticError(f"Variable '{name}' no declarada")
+        target = self.vars[name]
+        if indices:
+            for idx in indices:
+                if idx < 0 or idx >= len(target):
+                    raise SemanticError(f"Índice {idx} fuera de rango en '{name}'")
+                target = target[idx]
+        return target
+
+
+class SemanticsProcessor:
+    def __init__(self):
+        self.env = Environment()
+        # ... otras estructuras si tienes (e.g., para controladores, puertos)
+
+    def process(self, ast_list: BiGraph):
+        # Asumimos que ast_root.statements es la lista de Sentencias+VarDecl
+        for stmt in ast_list:
+            if isinstance(stmt, VarDecl):
+                self._handle_vardecl(stmt)
+            else:
+                self._handle_statement(stmt)
+        # luego devolvemos o construimos el bigraph semántico
+        return self.env, ast_list  # o tu objeto final
+
+    def _handle_vardecl(self, decl: VarDecl):
+        # 1. registrar la declaración
+        self.env.declare(decl.name, decl.type_name, decl.dimensions)
+        # 2. si hay inicializador, evaluarlo y asignar
+        if decl.value is not None:
+            # Si fuese expresión compleja, aquí llamarías a un evaluador recursivo
+            val = decl.value
+            # Chequear tipo:
+            if decl.dimensions:
+                # inicializador escalar para todo el arreglo
+                # podrías replicar o solo asignar a [0][...]
+                self.env.assign(decl.name, val, indices=[0]*len(decl.dimensions))
+            else:
+                self.env.assign(decl.name, val)
+
+    def _handle_statement(self, stmt):
+        # tu lógica existente para rules, controls, bigraphs...
+        pass
+
+    # si más adelante añades expresiones/assignments, podrías definir:
+    # def _eval_expression(self, expr): ...
+
+
+# Clase de error semántico
+class SemanticError(Exception):
+    pass
 
 @dataclass
 class Port:

@@ -1,13 +1,24 @@
-// Test de integración del parser de bigrafos
-atomic control Person : 1;
-atomic control Room : 2;
-control Building : 0;
+// Ejemplo de integración: declaraciones de variables y bigrafos
 
-signature {
-    Person : 1,
-    Room : 2,
-    Building : 0
-}
+// Declaraciones de escalares
+int x;                    // variable entera sin inicializar
+char initial = 'Z';       // variable char, inicializada
 
+// Declaraciones de arreglos y matrices
+float A[3][2] = 1.5;      // matriz 3×2 de float, inicializa A[0][0] a 1.5
+int counts[5];            // arreglo de 5 enteros sin inicializar
+
+// ¡Puedes incluso mezclar tipos en tu programa!
+char labels[2][3];        // matriz 2×3 de chars
+
+// -------------------------------------------------------
+// Resto de la gramática de bigrafos
+// -------------------------------------------------------
+atomic control P;         // tu control atómico
+atomic control Room;      // otro control
+
+// Regla de reacción de ejemplo
 rule enter_room: Person => Room;
+
+// Bigraph principal
 bigraph house = Building;

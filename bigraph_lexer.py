@@ -126,6 +126,10 @@ tokens = [
     'WHERE',        # where
     'WITH',         # with
     'LINKS',        # links
+    'INT',          # int
+    'FLOAT_TYPE',   # float
+    'CHAR_TYPE',    # char
+    'CHAR_LITERAL', # char literal
     
     # Cuantificadores y modalidades
     'FORALL',       # forall
@@ -173,13 +177,25 @@ reserved = {
     'mobile': 'MOBILE',
     'static': 'STATIC',
     'with': 'WITH',
-    'links': 'LINKS'
+    'links': 'LINKS',
+    'int':    'INT',
+    'float':  'FLOAT_TYPE',
+    'char':   'CHAR_TYPE'
 }
 
 # Ignorar espacios, tabs y retornos de carro
 t_ignore = ' \t\r'
-t_ignore_COMMENT_LINE = r'//.*'  # ahora también ignoras //… hasta el fin de línea
-t_ignore_COMMENT_BLOCK = r'/\*(.|\n)*?\*/'
+# t_ignore_COMMENT_LINE = r'//.*' 
+# t_ignore_COMMENT_BLOCK = r'/\*(.|\n)*?\*/'
+def t_COMMENT_LINE(t):
+     r'//.*'
+     pass
+
+ # Comentarios de bloque (/* … */), actualiza el número de línea
+def t_COMMENT_BLOCK(t):
+    r'/\*(.|\n)*?\*/'
+    t.lexer.lineno += t.value.count('\n')
+    pass
 
 # Ignorar BOM en archivos UTF-8
 def t_BOM(t):
@@ -245,6 +261,11 @@ def t_STRING(t):
 def t_IDENTIFIER(t):
     r'[a-zA-Z_][a-zA-Z_0-9]*'
     t.type = reserved.get(t.value, 'IDENTIFIER')
+    return t
+
+def t_CHAR_LITERAL(t):
+    r"\'([^'\\]|\\.)\'"
+    t.value = t.value[1:-1]
     return t
 
 # Saltos de línea

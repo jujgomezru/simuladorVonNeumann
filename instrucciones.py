@@ -98,7 +98,7 @@ class Instrucciones:
     def div(self, r1, r2, k, mode):
         op2 = self.cpu.reg[r2] if mode==0 else k
         if op2==0:
-            print("Error: División por cero"); self.cpu.running=False; return
+            raise ZeroDivisionError("División por cero en DIV R{}, R{} (modo {})".format(r1, r2, mode))
         res = (self.cpu.reg[r1] // op2) & 0xFFFFFFFFFFFFFFFF
         self.cpu.reg[r1] = res
         print(f"[DIV] R{r1} <- {res}")

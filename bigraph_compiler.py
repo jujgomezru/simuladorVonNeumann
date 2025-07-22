@@ -38,13 +38,17 @@ class AdvancedBigraphAnalyzer:
     def analyze_text(self, source_code):
         """Analizar código usando el parser PLY"""
         output = []
-        
         try:
             output.append("=== ANÁLISIS AVANZADO CON PLY ===")
-            
+            # Análisis léxico: mostrar los primeros 5 tokens y el total
+            from bigraph_lexer import test_lexer
+            tokens_list = test_lexer(source_code)
+            for idx, tok in enumerate(tokens_list[:10], start=1):
+                output.append(f"Token {idx}: {tok}")
+            output.append(f"✓ Total tokens reconocidos: {len(tokens_list)}\n")
+
             # Parsear con PLY
             self.ast = parse_bigraph(source_code)
-            
             if self.ast:
                 output.append("✓ Parsing exitoso - AST generado")
                 output.append("✓ Nodos AST encontrados: %d" % len(self.ast))
@@ -104,7 +108,6 @@ class AdvancedBigraphAnalyzer:
                 
             else:
                 output.append("❌ Error en parsing - AST vacío")
-                
         except Exception as e:
             output.append("❌ Error en análisis avanzado: %s" % str(e))
             output.append("Detalles del error:")

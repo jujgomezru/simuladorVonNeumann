@@ -61,6 +61,19 @@ class Link:
     def __repr__(self):
         return f"{self.name}: {self.source}->{self.targets}"
 
+class VarDecl:
+    def __init__(self, type_name, name, value=None, dimensions=None):
+        self.type_name = type_name      # 'int', 'float', 'char'
+        self.name = name                # identificador
+        self.value = value              # expresión o literal
+        self.dimensions = dimensions or []  # lista de tamaños
+    def __repr__(self):
+        dims = ''.join(f"[{d}]" for d in self.dimensions)
+        if self.value is not None:
+            return f"{self.type_name} {self.name}{dims} = {self.value}"
+        return f"{self.type_name} {self.name}{dims}"
+
+
 # Gramática mínima
 def p_program(p):
     '''program : statements'''
@@ -78,7 +91,9 @@ def p_statement(p):
     '''statement : control_statement
                 | bigraph_statement  
                 | signature_statement
-                | rule_statement'''
+                | rule_statement
+                | declaration
+                | empty'''
     p[0] = p[1]
 
 def p_control_statement(p):
@@ -188,6 +203,45 @@ def p_target_list_inner(p):
     else:
         p[0] = p[1] + [p[3]]
 
+def p_declaration(p):
+    '''declaration : type_spec IDENTIFIER array_dims_opt initializer_opt SEMICOLON'''
+    type_tok = p[1]
+    name = p[2]
+    dims = p[3]      # lista de tamaños o []
+    init = p[4]      # literal o expresión o None
+    p[0] = VarDecl(type_tok, name, init, dims)
+
+def p_type_spec(p):
+    '''type_spec : INT
+                 | FLOAT_TYPE
+                 | CHAR_TYPE'''
+    p[0] = p[1]
+
+def p_array_dims_opt(p):
+    '''array_dims_opt : array_dims
+                      | empty'''
+    p[0] = p[1] or []
+
+def p_array_dims(p):
+    '''array_dims : array_dims LBRACKET INTEGER RBRACKET
+                  | LBRACKET INTEGER RBRACKET'''
+    if len(p) == 4:
+        p[0] = [p[2]]
+    else:
+        p[0] = p[1] + [p[3]]
+
+def p_initializer_opt(p):
+    '''initializer_opt : EQUALS literal
+                       | empty'''
+    p[0] = p[2] if len(p) == 3 else None
+
+def p_literal(p):
+    '''literal : INTEGER
+               | FLOAT
+               | CHAR_LITERAL
+               | STRING'''
+    p[0] = p[1]
+
 def p_empty(p):
     'empty :'
     p[0] = None
@@ -203,23 +257,27 @@ parser = yacc.yacc(debug=False, write_tables=False)
 
 def parse_bigraph(input_text):
     """Parser principal"""
-    try:
-        # Preprocesar: eliminar comentarios y líneas vacías
-        lines = []
-        for line in input_text.split('\n'):
-            line = line.strip()
-            if line and not line.startswith('//'):
-                lines.append(line)
+    # try:
+    #     # Preprocesar: eliminar comentarios y líneas vacías
+    #     lines = []
+    #     for line in input_text.split('\n'):
+    #         line = line.strip()
+    #         if line and not line.startswith('//'):
+    #             lines.append(line)
         
-        clean_text = ' '.join(lines)
-        if not clean_text:
-            return []
+    #     clean_text = ' '.join(lines)
+    #     if not clean_text:
+    #         return []
             
-        result = parser.parse(clean_text, lexer=lexer, debug=False)
-        return result if result else []
-    except Exception as e:
-        print(f"Error de parsing: {e}")
-        return []
+    #     result = parser.parse(clean_text, lexer=lexer, debug=False)
+    #     return result if result else []
+    # except Exception as e:
+    #     print(f"Error de parsing: {e}")
+    #     return []
+    clean_text = ' '.join(line.strip() for line in input_text.splitlines() if line.strip() and not line.strip().startswith('//'))
+    result = parser.parse(clean_text, lexer=lexer, debug=False)
+    return result if result else []
+
 
 def test_parser():
     """Test del parser mínimo"""
@@ -234,11 +292,14 @@ def test_parser():
 
     rule move: Person => Room;
     bigraph house = Building with links: link1: Person => Building;
+    int x;
+    float A[3][2] = 1.5;
+    char c = 'z';
     '''
-    
+
     print("=== Testing Minimal Bigraph Parser ===")
     ast = parse_bigraph(test_code)
-    
+
     if ast:
         print(f"✓ Parse exitoso! {len(ast)} elementos:")
         for i, node in enumerate(ast):
