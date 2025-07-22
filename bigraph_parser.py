@@ -3,47 +3,68 @@ from bigraph_lexer import tokens, lexer
 
 # AST Node classes simplificadas
 class BiGraphNode:
-    pass
+    def __init__(self, name, children=None):
+        self.name = name
+        self.children = children or []
+    
+    def add_child(self, node):
+        self.children.append(node)
+    
+    def __repr__(self):
+        if self.children:
+            return f"{self.name}: [{', '.join(map(str, self.children))}]"
+        return self.name
 
 class Control(BiGraphNode):
     def __init__(self, name, arity=0, is_atomic=False):
-        self.name = name
+        super().__init__(name=name)
         self.arity = arity
         self.is_atomic = is_atomic
-    
-    def __str__(self):
+    def __repr__(self):
         atomic_str = "atomic " if self.is_atomic else ""
         return f"{atomic_str}control {self.name} : {self.arity}"
 
 class BiGraph(BiGraphNode):
-    def __init__(self, name, expression):
-        self.name = name
-        self.expression = expression
-    
-    def __str__(self):
-        return f"bigraph {self.name} = {self.expression}"
+    def __init__(self, name, place_graph, links=None):
+        super().__init__(name=name)
+        self.place_graph = place_graph
+        self.links       = links or []
+    def __repr__(self):
+        return f"Bigraph {self.name}: places={self.place_graph}, links={self.links}"
+
 
 class Reaction(BiGraphNode):
     def __init__(self, name, lhs, rhs):
+        super().__init__(name=name)
         self.name = name
         self.lhs = lhs
         self.rhs = rhs
     
-    def __str__(self):
+    def __repr__(self):
         return f"rule {self.name}: {self.lhs} => {self.rhs}"
 
 class Signature(BiGraphNode):
     def __init__(self, controls):
+        super().__init__(name="signature")
         self.controls = controls
     
-    def __str__(self):
+    def __repr__(self):
         controls_str = ', '.join(map(str, self.controls))
         return f"signature {{ {controls_str} }}"
+    
+class Link:
+    def __init__(self, name, source, targets):
+        self.name = name
+        self.source = source
+        self.targets = targets
+    
+    def __repr__(self):
+        return f"{self.name}: {self.source}->{self.targets}"
 
 # Gramática mínima
 def p_program(p):
     '''program : statements'''
-    p[0] = [s for s in p[1] if s]
+    p[0] = [s for s in p[1] if s is not None]
 
 def p_statements(p):
     '''statements : statement
@@ -69,9 +90,11 @@ def p_control_statement(p):
         p[0] = Control(p[2], int(p[4]), False)
 
 def p_bigraph_statement(p):
-    '''bigraph_statement : BIGRAPH IDENTIFIER ARROW IDENTIFIER SEMICOLON'''
-    # "bigraph name => expression;"
-    p[0] = BiGraph(p[2], p[4])
+    '''bigraph_statement : BIGRAPH IDENTIFIER EQUALS place_graph link_options SEMICOLON'''
+    name = p[2]
+    place = p[4]
+    links = p[5]           # puede ser [] o una lista de Link
+    p[0] = BiGraph(name, place, links)
 
 def p_signature_statement(p):
     '''signature_statement : SIGNATURE LBRACE signature_items RBRACE'''
@@ -92,6 +115,82 @@ def p_signature_item(p):
 def p_rule_statement(p):
     '''rule_statement : RULE IDENTIFIER COLON IDENTIFIER ARROW IDENTIFIER SEMICOLON'''
     p[0] = Reaction(p[2], p[4], p[6])
+
+def p_place_graph(p):
+    '''place_graph : ROOT COLON node_structure
+                   | node_structure'''
+    p[0] = p[3] if len(p)==4 else [p[1]]
+
+def p_node_structure(p):
+    '''node_structure : LBRACKET node_list_inner RBRACKET
+                      | IDENTIFIER child_opt'''
+    if p[1] == '[':
+        p[0] = p[2]
+    else:
+        p[0] = BiGraphNode(p[1], p[2])
+
+def p_node_list_inner(p):
+    '''node_list_inner : node_structure
+                       | node_list_inner COMPOSE node_structure'''
+    # construir árbol compuesto de nodos
+    if len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        p[0] = p[1] + [p[3]]
+
+def p_child_opt(p):
+    '''child_opt : COLON node_structure
+                 | empty'''
+    p[0] = [p[2]] if len(p)==3 else []
+
+def p_link_list(p):
+    '''link_list : link_def
+                 | link_list COMMA link_def'''
+    if len(p) == 2:
+        # un solo enlace
+        p[0] = [p[1]]
+    else:
+        # lista previa + nuevo enlace
+        p[0] = p[1] + [p[3]]
+
+def p_link_def(p):
+    '''link_def : IDENTIFIER COLON IDENTIFIER ARROW target_list'''
+    # p[1] = nombre del enlace
+    # p[3] = fuente
+    # p[5] = lista de destinos
+    p[0] = Link(name=p[1], source=p[3], targets=p[5])
+
+def p_link_options(p):
+    '''link_options : WITH LINKS COLON link_list
+                    | empty'''
+    if len(p) == 5:
+        # WITH LINKS: link_list
+        p[0] = p[3] if False else p[4]  # p[4] es la lista retornada por link_list
+    else:
+        # vacío
+        p[0] = []
+
+def p_target_list(p):
+    '''target_list : IDENTIFIER
+                   | LBRACKET target_list_inner RBRACKET'''
+    if len(p) == 2:
+        # destino único
+        p[0] = [p[1]]
+    else:
+        # lista dentro de [ … ]
+        p[0] = p[2]
+
+def p_target_list_inner(p):
+    '''target_list_inner : IDENTIFIER
+                         | target_list_inner COMMA IDENTIFIER'''
+    if len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        p[0] = p[1] + [p[3]]
+
+def p_empty(p):
+    'empty :'
+    p[0] = None
 
 def p_error(p):
     if p:
@@ -127,14 +226,14 @@ def test_parser():
     test_code = '''
     atomic control Person : 1;
     control Room : 2;
-    
+
     signature {
         Person : 1,
-        Room : 2
+        Room   : 2
     }
-    
+
     rule move: Person => Room;
-    bigraph house => Building;
+    bigraph house = Building with links: link1: Person => Building;
     '''
     
     print("=== Testing Minimal Bigraph Parser ===")

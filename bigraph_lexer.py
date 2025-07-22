@@ -159,7 +159,6 @@ tokens = [
     'NEWLINE', 'ARROW', 'DARROW',
     
     # Comentarios y espacios en blanco (ignorados)
-    'COMMENT'
 ]
 
 # Palabras reservadas
