@@ -1,78 +1,57 @@
-from instrucciones import Instrucciones
+from compiler_frontend import compile_high_level_code
+from assembler import assemble_lines, preprocess_lines
+from cpu_core import run_instructions  # ¡ya no hay importación circular!
 
-MEMORY_SIZE = 2**16
+def run_source_code(source_code: str):
+    print("🔍 Paso 1: Compilando lenguaje de alto nivel a ensamblador...")
+    try:
+        asm_lines = compile_high_level_code(source_code)
+        bin_lines = assemble_lines(asm_lines)
+    except Exception as e:
+        print(f"❌ Error durante compilación: {e}")
+        return
 
-class Memoria:
-    def __init__(self):
-        self.mem = [0] * MEMORY_SIZE
+    print("\n📄 Ensamblador generado:")
+    for line in asm_lines:
+        print("   ", line)
 
-    def leer(self, direccion):
-        assert 0 <= direccion < MEMORY_SIZE, f"Dirección fuera de rango: {direccion}"
-        return self.mem[direccion]
+    print("\n⚙️ Paso 2: Ensamblando a binario...")
+    try:
 
-    def escribir(self, direccion, valor):
-        assert 0 <= direccion < MEMORY_SIZE, f"Dirección fuera de rango: {direccion}"
-        self.mem[direccion] = valor
+        cleaned_asm = preprocess_lines(asm_lines)
+        bin_lines = assemble_lines(cleaned_asm)
+    except Exception as e:
+        print(f"❌ Error durante ensamblado: {e}")
+        return
 
-class CPU:
-    def __init__(self, memoria):
-        self.mem = memoria
-        self.reg = [0] * 16
-        self.PC = 0
-        self.IR = 0
-        self.IR_len = 0
-        self.FLAGS = {'Z': 0, 'N': 0, 'C': 0, 'V': 0}
-        self.running = True
-        self.instrucciones = Instrucciones(self)
+    print("\n🚀 Paso 3: Ejecutando en CPU simulada...")
+    try:
+        cpu, mem = run_instructions(bin_lines)
+    except Exception as e:
+        print(f"❌ Error durante ejecución: {e}")
+        return
 
-    def fetch(self):
-        raw = self.mem.leer(self.PC)
-        if isinstance(raw, tuple):
-            self.IR, self.IR_len = raw
-        else:
-            self.IR = raw
-            self.IR_len = self.IR.bit_length() or 1
-        self.PC += 1
+    print("\n🧠 Estado final de los registros:")
+    for i, val in enumerate(cpu.reg):
+        print(f"   R{i}: {val}")
 
-    def decode_execute(self):
-        self.instrucciones.ejecutar(self.IR, self.IR_len)
+    print("\n✅ Programa finalizado correctamente.")
 
-    def ejecutar(self):
-        # Ejecución sin debug paso a paso
-        while self.running:
-            self.fetch()
-            self.decode_execute()
+if __name__ == "__main__":
+    import sys
+    import os
 
-class Cargador:
-    @staticmethod
-    def parse_binary(instr_str: str):
-        bits = instr_str.replace(" ", "").replace("\n", "")
-        if len(bits) == 0 or any(c not in "01" for c in bits):
-            raise ValueError("Cadena inválida: debe contener sólo '0' y '1'")
-        return int(bits, 2), len(bits)
+    if len(sys.argv) != 2:
+        print("Uso: python main.py <archivo.stre>")
+        sys.exit(1)
 
-    @staticmethod
-    def cargar(memoria, instrucciones, base_addr=0):
-        for offset, palabra in enumerate(instrucciones):
-            if isinstance(palabra, str):
-                valor, bit_len = Cargador.parse_binary(palabra)
-                memoria.escribir(base_addr + offset, (valor, bit_len))
-            else:
-                memoria.escribir(base_addr + offset, palabra)
+    filepath = sys.argv[1]
 
-# Función de utilidad para la GUI
-def run_instructions(instrs, base=0, regs_init=None):
-    """
-    Carga y ejecuta una lista de instrucciones binarias o tuplas,
-    devuelve la instancia de CPU y Memoria tras la ejecución.
-    regs_init: dict {registro: valor}
-    """
-    mem = Memoria()
-    cpu = CPU(mem)
-    if regs_init:
-        for r, v in regs_init.items():
-            cpu.reg[r] = v
-    Cargador.cargar(mem, instrs, base_addr=base)
-    cpu.PC = base
-    cpu.ejecutar()
-    return cpu, mem
+    if not os.path.isfile(filepath):
+        print(f"❌ Archivo no encontrado: {filepath}")
+        sys.exit(1)
+
+    with open(filepath, 'r', encoding='utf-8') as f:
+        source_code = f.read()
+
+    run_source_code(source_code)

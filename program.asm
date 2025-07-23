@@ -1,0 +1,2 @@
+LOADK R1, 25
+LOADK R1, 0

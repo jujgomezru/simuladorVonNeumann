@@ -1,0 +1,13 @@
+// Programa de prueba: análisis de rachas de temperatura
+
+stre int temperatura = 25;
+stre int contador = 0;
+stre colect mitrat;
+
+while_stre (temperatura < 30) {{
+    temperatura = temperatura + 1;
+    colectavgB(mitrat);
+    contador = contador + 1;
+}}
+
+procers(mitrat);

@@ -1,3 +1,34 @@
+class Memoria:
+    def __init__(self):
+        self.data = {}
+
+    def escribir(self, direccion, valor):
+        self.data[direccion] = valor
+
+    def leer(self, direccion):
+        return self.data.get(direccion, 0)
+
+
+class CPU:
+    def __init__(self):
+        self.reg = [0] * 16  # 16 registros
+        self.mem = Memoria()  # memoria integrada
+        self.FLAGS = {'Z': 0, 'N': 0}
+        self.PC = 0
+        self.running = True
+        self.instrucciones = Instrucciones(self)
+
+    def ejecutar(self, instruccion, memoria_externa=None):
+        """
+        Ejecuta una instrucción de 64 bits en binario (int).
+        """
+        # Si se provee una memoria externa (como en la simulación), se usa.
+        if memoria_externa:
+            self.mem = memoria_externa
+
+        bit_length = instruccion.bit_length()
+        self.instrucciones.ejecutar(instruccion, bit_length)
+
 class Instrucciones:
     def __init__(self, cpu):
         self.cpu = cpu
