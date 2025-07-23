@@ -1,0 +1,5 @@
+bigraph ErrorConexion = 
+  root: [A | B]
+  with
+  links: 
+     l1: A->->B;  # Sintaxis inválida

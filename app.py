@@ -128,7 +128,8 @@ rule enter_car: Person => Car;
 
 // Configuraciones Iniciales
 bigraph city => Building;
-bigraph demo => Person;"""
+bigraph demo => Person;
+"""
         
         else:  # modo binario
             example = """11111111

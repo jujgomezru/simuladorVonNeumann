@@ -1,0 +1,4 @@
+bigraph ErrorJerarquia = 
+  root: [A: [B] | B]  # B definido en dos lugares
+  with
+  links: l: A->B;

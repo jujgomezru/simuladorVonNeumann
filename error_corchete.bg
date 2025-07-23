@@ -1,0 +1,4 @@
+bigraph ErrorEstructura = 
+  root: A: [B | C  # Falta cerrar corchete
+  with
+  links: l: A->B;

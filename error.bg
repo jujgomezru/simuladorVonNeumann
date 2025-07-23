@@ -1,0 +1,7 @@
+bigraph SistemaErrores = 
+  root: [Servidor: [DB | App] | Cliente@correo]
+  with
+  links: 
+    http: Cliente->App,
+    sql: App->DB,
+    error: NodoInexistente->DB;  # Error semántico
